@@ -63,6 +63,17 @@ app.get('/attendancePercent', async (req, res) => {
     res.send("Attendance: " + percent.toFixed(2) + "%");
 });
 
+// Search student by roll number
+app.get('/searchStudent', async (req, res) => {
+    const student = await Student.findOne({ roll: 101 });
+
+    if (student) {
+        res.json(student);
+    } else {
+        res.send("Student not found");
+    }
+});
+
 // Start server
 app.listen(3000, () => {
     console.log("Server running on port 3000");
