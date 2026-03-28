@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Attendance Tracker</title>
+
+<style>
+body { font-family: Arial; background:#f4f6f8; text-align:center; }
+
+.box {
+    background:white;
+    padding:20px;
+    margin:20px auto;
+    width:90%;
+    border-radius:10px;
+}
+
+table { width:100%; border-collapse: collapse; }
+
+th, td {
+    padding:10px;
+    border:1px solid #ccc;
+}
+
+button {
+    padding:5px 10px;
+    margin:2px;
+    background:#4CAF50;
+    color:white;
+    border:none;
+    border-radius:5px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Attendance Tracker</h1>
+
+<div class="box">
+<h2>Add Student / Subject</h2>
+
+<input id="name" placeholder="Name">
+<input id="roll" placeholder="Roll">
+<input id="subject" placeholder="Subject (math)">
+<button onclick="add()">Add</button>
+
+</div>
+
+<div class="box">
+<button onclick="load()">Load Students</button>
+
+<table>
+<thead id="thead"></thead>
+<tbody id="data"></tbody>
+</table>
+
+</div>
+
+<script>
+
+async function add(){
+
+    const name = document.getElementById("name").value;
+    const roll = document.getElementById("roll").value;
+    const subject = document.getElementById("subject").value.toLowerCase().trim(); // 🔥 fix
+
+    await fetch('/addStudentUI',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+            name: name,
+            roll: Number(roll),
+            subject: subject
+        })
+    });
+
+    load();
+}
+   
+
+async function load(){
+
+    const res = await fetch('/students');
+    const data = await res.json();
+
+    let allSubjects = new Set();
+
+    data.forEach(s=>{
+        Object.keys(s.subjects).forEach(sub=>{
+            allSubjects.add(sub);
+        });
+    });
+
+    const subjects = Array.from(allSubjects);
+
+    // HEADER
+    let header = `<tr><th>Name</th><th>Roll</th>`;
+    subjects.forEach(s => header += `<th>${s}</th>`);
+    header += `<th>Actions</th></tr>`;
+    document.getElementById("thead").innerHTML = header;
+
+    // BODY
+    const tbody = document.getElementById("data");
+    tbody.innerHTML = "";
+
+    data.forEach(s => {
+
+        let row = `<tr><td>${s.name}</td><td>${s.roll}</td>`;
+
+        subjects.forEach(sub => {
+
+            const subj = s.subjects[sub] || { present:0, total:0 };
+
+            const percent = subj.total === 0 ? 0 :
+                ((subj.present / subj.total) * 100).toFixed(1);
+
+            row += `
+            <td>
+                ${subj.present}/${subj.total}<br>
+                ${percent}%<br>
+                <button onclick="mark(${s.roll},'${sub}','present')">P</button>
+                <button onclick="mark(${s.roll},'${sub}','absent')">A</button>
+            </td>`;
+        });
+
+        row += `<td>
+                    <button onclick="del(${s.roll})">Delete</button>
+                </td></tr>`;
+
+        tbody.innerHTML += row;
+    });
+}
+
+async function mark(r,s,t){
+    await fetch(`/mark?roll=${r}&subject=${s}&type=${t}`);
+    load();
+}
+
+async function del(r){
+    await fetch(`/deleteStudent?roll=${r}`);
+    load();
+}
+
+</script>
+
+</body>
+</html>

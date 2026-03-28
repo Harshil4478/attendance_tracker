@@ -1,80 +1,83 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Student = require('./models/student');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-// MongoDB connection
 mongoose.connect('mongodb://127.0.0.1:27017/attendanceDB')
 .then(() => console.log("Database connected"))
 .catch(err => console.log(err));
 
-// Test route
+// Serve UI
 app.get('/', (req, res) => {
-    res.send("Attendance Tracker Running");
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Add student (simple test)
-app.get('/addStudent', async (req, res) => {
+// Add / Update student
+app.post('/addStudentUI', async (req, res) => {
     try {
-        const student = new Student({
-            name: "Rahul",
-            roll: 101,
-            marks: 85,
-            attendance: { present: 20, total: 25 }
-        });
+        const { name, roll, subject } = req.body;
+
+        const cleanSubject = subject.toLowerCase().trim(); // 🔥 fix
+
+        let student = await Student.findOne({ roll: Number(roll) });
+
+        if (!student) {
+            student = new Student({
+                name,
+                roll: Number(roll),
+                subjects: {}
+            });
+        }
+
+        if (!student.subjects[cleanSubject]) {
+            student.subjects[cleanSubject] = { present: 0, total: 0 };
+            student.markModified('subjects'); // 🔥 VERY IMPORTANT
+        }
 
         await student.save();
-        res.send("Student added successfully");
+        res.send("Saved");
     } catch (err) {
         res.send(err);
     }
 });
 
-// View students
+// Get students
 app.get('/students', async (req, res) => {
-    const students = await Student.find();
-    res.json(students);
+    const data = await Student.find();
+    res.json(data);
 });
 
-// Update attendance
-app.get('/updateAttendance', async (req, res) => {
-    try {
-        const student = await Student.findOne({ roll: 101 });
+// Mark attendance
+app.get('/mark', async (req, res) => {
+    const { roll, subject, type } = req.query;
 
-        student.attendance.present += 1;
-        student.attendance.total += 1;
+    const cleanSubject = subject.toLowerCase().trim(); // 🔥 fix
 
-        await student.save();
+    const student = await Student.findOne({ roll: Number(roll) });
 
-        res.send("Attendance updated");
-    } catch (err) {
-        res.send(err);
+    if (!student || !student.subjects[cleanSubject]) {
+        return res.send("Invalid");
     }
-});
 
-// Get attendance percentage
-app.get('/attendancePercent', async (req, res) => {
-    const student = await Student.findOne({ roll: 101 });
+    student.subjects[cleanSubject].total += 1;
 
-    const percent = (student.attendance.present / student.attendance.total) * 100;
-
-    res.send("Attendance: " + percent.toFixed(2) + "%");
-});
-
-// Search student by roll number
-app.get('/searchStudent', async (req, res) => {
-    const student = await Student.findOne({ roll: 101 });
-
-    if (student) {
-        res.json(student);
-    } else {
-        res.send("Student not found");
+    if (type === "present") {
+        student.subjects[cleanSubject].present += 1;
     }
+
+    student.markModified('subjects'); // 🔥 VERY IMPORTANT
+
+    await student.save();
+    res.send("Updated");
 });
 
-// Start server
-app.listen(3000, () => {
-    console.log("Server running on port 3000");
+// Delete student
+app.get('/deleteStudent', async (req, res) => {
+    await Student.deleteOne({ roll: Number(req.query.roll) });
+    res.send("Deleted");
 });
+
+app.listen(3000, () => console.log("Server running on port 3000"));
