@@ -6,7 +6,8 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-mongoose.connect('mongodb://127.0.0.1:27017/attendanceDB')
+//  FIXED MongoDB connection
+mongoose.connect('mongodb://mongo:27017/attendanceDB')
 .then(() => console.log("Database connected"))
 .catch(err => console.log(err));
 
@@ -20,7 +21,7 @@ app.post('/addStudentUI', async (req, res) => {
     try {
         const { name, roll, subject } = req.body;
 
-        const cleanSubject = subject.toLowerCase().trim(); // 🔥 fix
+        const cleanSubject = subject.toLowerCase().trim();
 
         let student = await Student.findOne({ roll: Number(roll) });
 
@@ -34,7 +35,7 @@ app.post('/addStudentUI', async (req, res) => {
 
         if (!student.subjects[cleanSubject]) {
             student.subjects[cleanSubject] = { present: 0, total: 0 };
-            student.markModified('subjects'); // 🔥 VERY IMPORTANT
+            student.markModified('subjects'); // important
         }
 
         await student.save();
@@ -54,7 +55,7 @@ app.get('/students', async (req, res) => {
 app.get('/mark', async (req, res) => {
     const { roll, subject, type } = req.query;
 
-    const cleanSubject = subject.toLowerCase().trim(); // 🔥 fix
+    const cleanSubject = subject.toLowerCase().trim();
 
     const student = await Student.findOne({ roll: Number(roll) });
 
@@ -68,7 +69,7 @@ app.get('/mark', async (req, res) => {
         student.subjects[cleanSubject].present += 1;
     }
 
-    student.markModified('subjects'); // 🔥 VERY IMPORTANT
+    student.markModified('subjects'); // important
 
     await student.save();
     res.send("Updated");
